@@ -42,7 +42,7 @@ const TabLayout = () => {
                 paddingVertical: tabBar.height / 2 - tabBar.iconFrame / 1.6
             },
             tabBarIconStyle:{
-                width: tabBar.IconFrame,
+                width: tabBar.iconFrame,
                 height: tabBar.iconFrame,
                 alignItems: 'center'
             }
