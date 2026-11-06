@@ -1,15 +1,40 @@
-import {Tabs} from "expo-router";
+import {Tabs, router} from "expo-router";
 import {tabs} from "@/constants/data";
 import clsx from "clsx";
-import {Image} from "react-native";
-import {View} from "react-native";
+import {Image, View, ActivityIndicator} from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
+import {useAuth} from "@clerk/expo";
+import React, {useEffect, useRef} from "react";
 import {colors, components} from "@/constants/theme"
 import '@/global.css'
 
 const tabBar = components.tabBar;
 
-const TabLayout = () => {
+export default function TabLayout() {
+    const {isLoaded, isSignedIn} = useAuth();
+    const hasRedirected = useRef(false);
+
+    // Redirect unauthenticated users to sign-in
+    useEffect(() => {
+        if (isLoaded && !isSignedIn && !hasRedirected.current) {
+            hasRedirected.current = true;
+            router.replace('/(auth)/sign-in');
+        }
+    }, [isLoaded, isSignedIn]);
+
+    // Show spinner while Clerk is loading
+    if (!isLoaded) {
+        return (
+            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <ActivityIndicator size="large" color="#ea7a53" />
+            </View>
+        );
+    }
+
+    return <TabLayoutContent />;
+}
+
+function TabLayoutContent() {
     const insets = useSafeAreaInsets();
     const TabIcon = ({focused, icon}: TabIconProps) => {
         return (
@@ -64,4 +89,3 @@ const TabLayout = () => {
         </Tabs>
     )
 }
-    export default TabLayout;
