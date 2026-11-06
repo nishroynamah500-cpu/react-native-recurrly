@@ -78,6 +78,10 @@
         @apply ml-4 text-2xl font-sans-bold text-primary;
     }
 
+    .home-user-email {
+        @apply ml-4 text-sm font-sans-medium text-muted-foreground;
+    }
+
     .home-add-icon {
         @apply size-12;
     }
@@ -416,5 +420,97 @@
 
     .category-chip-text-active {
         @apply text-accent;
+    }
+
+    .settings-content {
+        @apply flex-1 px-5 pt-6;
+    }
+
+    .settings-title {
+        @apply mb-6 text-3xl font-sans-bold text-primary;
+    }
+
+    .settings-profile-card {
+        @apply mb-6 flex-row items-center justify-between rounded-2xl border border-border bg-card p-4;
+    }
+
+    .settings-avatar {
+        @apply size-14 rounded-full;
+    }
+
+    .settings-profile-info {
+        @apply ml-3 flex-1 items-start;
+    }
+
+    .settings-profile-name {
+        @apply text-base font-sans-bold text-primary;
+    }
+
+    .settings-profile-email {
+        @apply mt-0.5 text-sm font-sans-medium text-muted-foreground;
+    }
+
+    .settings-chevron {
+        @apply text-2xl text-muted-foreground;
+    }
+
+    .settings-section {
+        @apply mb-6;
+    }
+
+    .settings-section-title {
+        @apply mb-3 text-sm font-sans-semibold uppercase tracking-[1px] text-muted-foreground;
+    }
+
+    .settings-menu {
+        @apply rounded-2xl border border-border bg-card;
+    }
+
+    .settings-menu-item {
+        @apply flex-row items-center justify-between px-4 py-4;
+    }
+
+    .settings-menu-icon-wrap {
+        @apply mr-3 size-10 items-center justify-center rounded-lg bg-destructive/10;
+    }
+
+    .settings-menu-icon-text {
+        @apply text-lg text-destructive;
+    }
+
+    .settings-menu-text {
+        @apply flex-1 text-base font-sans-semibold text-primary;
+    }
+
+    .settings-menu-text-danger {
+        @apply text-destructive;
+    }
+
+    .settings-signout-button {
+        @apply w-full rounded-2xl bg-[#ea7a53] py-4 items-center justify-center;
+    }
+
+    .settings-signout-text {
+        @apply text-base font-sans-bold text-white;
+    }
+
+    .settings-details-menu {
+        @apply mb-6 rounded-2xl border border-border bg-card px-4 pt-4 pb-1;
+    }
+
+    .settings-details-title {
+        @apply mb-3 text-base font-sans-bold text-primary;
+    }
+
+    .settings-detail-row {
+        @apply flex-row items-center justify-between px-4 py-3.5;
+    }
+
+    .settings-detail-label {
+        @apply text-sm font-sans-medium text-muted-foreground;
+    }
+
+    .settings-detail-value {
+        @apply flex-1 text-right text-sm font-sans-semibold text-primary;
     }
 }
