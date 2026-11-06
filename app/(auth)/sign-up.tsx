@@ -35,13 +35,18 @@ const SignUp = () => {
         return '';
     };
 
-    const validatePassword = (value: string, confirm?: string) => {
+    const validatePassword = (value: string) => {
         if (!value.trim()) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
         if (!/[A-Z]/.test(value)) return 'Include at least one uppercase letter';
         if (!/[a-z]/.test(value)) return 'Include at least one lowercase letter';
         if (!/[0-9]/.test(value)) return 'Include at least one number';
-        if (confirm && value !== confirm) return 'Passwords do not match';
+        return '';
+    };
+
+    const validateConfirmPassword = (value: string, password: string) => {
+        if (!value.trim()) return 'Please confirm your password';
+        if (value !== password) return 'Passwords do not match';
         return '';
     };
 
@@ -54,12 +59,14 @@ const SignUp = () => {
     const handleSignUp = async () => {
         const nameErr = validateName(name);
         const emailErr = validateEmail(email);
-        const passErr = validatePassword(password, confirmPassword);
+        const passErr = validatePassword(password);
+        const confirmErr = validateConfirmPassword(confirmPassword, password);
 
         const errs: Record<string, string> = {};
         if (nameErr) errs.name = nameErr;
         if (emailErr) errs.email = emailErr;
         if (passErr) errs.password = passErr;
+        if (confirmErr) errs.confirmPassword = confirmErr;
 
         if (Object.keys(errs).length > 0) {
             setFieldErrors(errs);
@@ -70,9 +77,14 @@ const SignUp = () => {
         setIsSubmitting(true);
         try {
             console.log('[SignUp] Creating account with email:', email.trim());
+            const nameParts = name.trim().split(/\s+/);
+            const firstName = nameParts[0] ?? '';
+            const lastName = nameParts.slice(1).join(' ') ?? '';
             const { error } = await signUp!.password({
                 emailAddress: email.trim(),
                 password: password,
+                firstName,
+                lastName,
             });
             console.log('[SignUp] signUp.password() result:', { error: !!error, status: signUp?.status });
             if (error) {
@@ -116,7 +128,7 @@ const SignUp = () => {
 
         setIsSubmitting(true);
         try {
-            console.log('[SignUp] Verifying code:', code.replace(/\s/g, ''));
+            console.log('[SignUp] Verifying email code...');
             const { error } = await signUp!.verifications.verifyEmailCode({
                 code: code.replace(/\s/g, ''),
             });
@@ -256,12 +268,15 @@ const SignUp = () => {
                                                 value={password}
                                                 onChangeText={(text) => {
                                                     setPassword(text);
-                                                    if (fieldErrors.password) setFieldErrors({});
+                                                    if (fieldErrors.password) setFieldErrors((prev) => {
+                                                        const { password: _, ...rest } = prev;
+                                                        return rest;
+                                                    });
                                                     if (confirmPassword) {
-                                                        const err = validatePassword(text, confirmPassword);
-                                                        if (err) setFieldErrors((prev) => ({ ...prev, password: err }));
+                                                        const err = validateConfirmPassword(confirmPassword, text);
+                                                        if (err) setFieldErrors((prev) => ({ ...prev, confirmPassword: err }));
                                                         else setFieldErrors((prev) => {
-                                                            const { password: _, ...rest } = prev;
+                                                            const { confirmPassword: _, ...rest } = prev;
                                                             return rest;
                                                         });
                                                     }
@@ -290,9 +305,12 @@ const SignUp = () => {
                                                 value={confirmPassword}
                                                 onChangeText={(text) => {
                                                     setConfirmPassword(text);
-                                                    if (fieldErrors.confirmPassword) setFieldErrors({});
+                                                    if (fieldErrors.confirmPassword) setFieldErrors((prev) => {
+                                                        const { confirmPassword: _, ...rest } = prev;
+                                                        return rest;
+                                                    });
                                                     if (password) {
-                                                        const err = validatePassword(password, text);
+                                                        const err = validateConfirmPassword(text, password);
                                                         if (err) setFieldErrors((prev) => ({ ...prev, confirmPassword: err }));
                                                         else setFieldErrors((prev) => {
                                                             const { confirmPassword: _, ...rest } = prev;

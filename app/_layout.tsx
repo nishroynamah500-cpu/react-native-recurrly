@@ -3,7 +3,8 @@ import {useEffect} from "react";
 import {SplashScreen, Stack } from "expo-router";
 import "@/global.css";
 import {useFonts} from "expo-font";
-import {ClerkProvider} from "@clerk/expo";
+import {ClerkProvider, useAuth} from "@clerk/expo";
+import {tokenCache} from "@clerk/expo/token-cache";
 import {View, Text} from "react-native";
 
 SplashScreen.preventAutoHideAsync();
@@ -13,18 +14,6 @@ console.log('[Clerk] Publishable key:', publishableKey ? `${publishableKey.slice
 if (!publishableKey) {
   throw new Error('Add your Clerk Publishable Key to the .env file');
 }
-
-// Use in-memory cache for Expo Go compatibility.
-// Switch to `import {tokenCache} from "@clerk/expo/token-cache"` when using a development build.
-const tokenStore: Record<string, string> = {};
-const tokenCache = {
-  async getToken(key: string) {
-    return tokenStore[key] ?? null;
-  },
-  async saveToken(key: string, value: string) {
-    tokenStore[key] = value;
-  },
-};
 
 // Error Boundary component to catch and display errors
 class ErrorBoundary extends React.Component<
@@ -57,21 +46,24 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-export default function RootLayout() {
-  const [fontsLoaded, fontError]= useFonts({
+function AppContent() {
+  const [fontsLoaded, fontError] = useFonts({
     'sans-regular': require('../assets/fonts/PlusJakartaSans-Regular.ttf'),
     'sans-bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'),
     'sans-medium': require('../assets/fonts/PlusJakartaSans-Medium.ttf'),
     'sans-semibold': require('../assets/fonts/PlusJakartaSans-SemiBold.ttf'),
     'sans-extrabold': require('../assets/fonts/PlusJakartaSans-ExtraBold.ttf'),
     'sans-light': require('../assets/fonts/PlusJakartaSans-Light.ttf'),
-  })
+  });
 
+  const {isLoaded: authLoaded} = useAuth();
+
+  // Hide splash only after BOTH fonts and auth are ready
   useEffect(() => {
-    if(fontsLoaded || fontError){
-      SplashScreen.hideAsync()
+    if ((fontsLoaded || fontError) && authLoaded) {
+      SplashScreen.hideAsync();
     }
-    },[fontsLoaded, fontError])
+  }, [fontsLoaded, fontError, authLoaded]);
 
   if (fontError) {
     return (
@@ -85,9 +77,15 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <Stack screenOptions={{headerShown: false}} />
+  );
+}
+
+export default function RootLayout() {
+  return (
     <ErrorBoundary>
       <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <Stack screenOptions={{headerShown: false}}/>
+        <AppContent />
       </ClerkProvider>
     </ErrorBoundary>
   );

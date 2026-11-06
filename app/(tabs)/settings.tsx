@@ -10,9 +10,16 @@ import images from "@/constants/images";
 const SafeAreaView = styled(RNSafeAreaView);
 
 const Settings = () => {
-    const {user} = useUser();
+    const {user, isLoaded} = useUser();
     const {signOut} = useAuth();
     const [isSigningOut, setIsSigningOut] = React.useState(false);
+
+    // Redirect to sign-in if Clerk is loaded but no user is authenticated
+    React.useEffect(() => {
+        if (isLoaded && !user) {
+            router.replace('/(auth)/sign-in');
+        }
+    }, [isLoaded, user]);
 
     const profileImage = user?.imageUrl ?? images.avatar;
     const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? '';
@@ -35,12 +42,18 @@ const Settings = () => {
         }
     };
 
-    if (!user) {
+    // Show spinner only while Clerk is still loading
+    if (!isLoaded) {
         return (
             <SafeAreaView className="flex-1 bg-background items-center justify-center">
                 <ActivityIndicator size="large" color="#ea7a53" />
             </SafeAreaView>
         );
+    }
+
+    // No user while loaded — redirect is already triggered above, show nothing
+    if (!user) {
+        return null;
     }
 
     return (
@@ -50,8 +63,7 @@ const Settings = () => {
 
                 <View className="settings-profile-card">
                     <Image
-                        source={{uri: typeof profileImage === 'string' ? profileImage : undefined}}
-                        defaultSource={images.avatar}
+                        source={typeof profileImage === 'string' ? {uri: profileImage} : profileImage}
                         className="settings-avatar"
                     />
                     <View className="settings-profile-info">
@@ -66,7 +78,7 @@ const Settings = () => {
                         <Text className="settings-details-title">Account</Text>
                         <View className="settings-detail-row">
                             <Text className="settings-detail-label">Account ID</Text>
-                            <Text className="settings-detail-value" numberOfLines={1} adjustable>{accountId}</Text>
+                            <Text className="settings-detail-value" numberOfLines={1} adjustsFontSizeToFit>{accountId}</Text>
                         </View>
                         {joinedDate ? (
                             <View className="settings-detail-row">

@@ -31,7 +31,7 @@ export default function App() {
                         <>
                             <View className={"home-header"}>
                                 <View className={"home-user"}>
-                                    <Image source={{uri: typeof profileImage === 'string' ? profileImage : undefined}} defaultSource={images.avatar} className="home-avatar" />
+                                    <Image source={typeof profileImage === 'string' ? {uri: profileImage} : profileImage} className="home-avatar" />
                                     <Text className={"home-user-name"}>{userName}</Text>
                                 </View>
 

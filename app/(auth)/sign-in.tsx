@@ -60,7 +60,7 @@ const SignIn = () => {
 
         setIsSubmitting(true);
         try {
-            console.log('[SignIn] Attempting sign-in with password for:', email.trim());
+            console.log('[SignIn] Attempting sign-in with password');
             const { error } = await signIn!.password({ emailAddress: email.trim(), password });
             console.log('[SignIn] signIn.password() result:', { error: !!error, status: signIn?.status });
             if (error) {
@@ -91,13 +91,20 @@ const SignIn = () => {
                 }
             } else if (signIn!.status === 'needs_second_factor') {
                 console.log('[SignIn] MFA required, sending email code...');
-                const { error: sendError } = await signIn!.emailCode.sendCode();
-                if (sendError) {
-                    setFieldErrors({ code: 'Couldn\'t send verification code.' });
-                    return;
+                const emailCodeFactor = signIn!.supportedSecondFactors?.find(
+                    (factor) => factor.strategy === 'email_code',
+                );
+                if (emailCodeFactor) {
+                    const { error: sendError } = await signIn!.mfa.sendEmailCode();
+                    if (sendError) {
+                        setFieldErrors({ code: 'Couldn\'t send verification code.' });
+                        return;
+                    }
+                    setCodeMode('mfa');
+                    setStep('code');
+                } else {
+                    setFieldErrors({ password: 'MFA required but no email factor found.' });
                 }
-                setCodeMode('mfa');
-                setStep('code');
             } else if (signIn!.status === 'needs_first_factor') {
                 console.log('[SignIn] Needs first factor, sending email code...');
                 const { error: sendError } = await signIn!.emailCode.sendCode();
@@ -111,7 +118,9 @@ const SignIn = () => {
                 console.log('[SignIn] Sign-in complete, finalizing...');
                 const { error: finalizeError } = await signIn!.finalize({
                     navigate: ({ session }) => {
-                        if (session?.currentTask) return;
+                        if (session?.currentTask) {
+                            console.log('[SignIn] Session has pending task:', session.currentTask);
+                        }
                         console.log('[SignIn] Navigating to tabs');
                         router.replace('/(tabs)');
                     },
@@ -144,9 +153,9 @@ const SignIn = () => {
         try {
             let error;
 
-            // Device trust uses mfa.verifyEmailCode, while MFA/first factor uses emailCode.verifyCode
-            if (codeMode === 'client_trust') {
-                console.log('[SignIn] Verifying device trust code...');
+            // Device trust and MFA use mfa.verifyEmailCode, while first factor uses emailCode.verifyCode
+            if (codeMode === 'client_trust' || codeMode === 'mfa') {
+                console.log('[SignIn] Verifying MFA code (mode:', codeMode, ')...');
                 const result = await signIn!.mfa.verifyEmailCode({ code: code.replace(/\s/g, '') });
                 error = result.error;
             } else {
@@ -167,7 +176,9 @@ const SignIn = () => {
                 console.log('[SignIn] Sign-in complete, finalizing...');
                 const { error: finalizeError } = await signIn!.finalize({
                     navigate: ({ session }) => {
-                        if (session?.currentTask) return;
+                        if (session?.currentTask) {
+                            console.log('[SignIn] Session has pending task:', session.currentTask);
+                        }
                         console.log('[SignIn] Navigating to tabs');
                         router.replace('/(tabs)');
                     },
