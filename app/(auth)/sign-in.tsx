@@ -2,26 +2,26 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
-import { useSignIn } from '@clerk/expo';
+import { useSignIn } from '@clerk/expo/legacy';
+import { useClerk } from '@clerk/expo';
 import { styled } from 'nativewind';
 import '@/global.css';
 
 const SafeAreaView = styled(RNSafeAreaView);
 
 type SignInStep = 'email' | 'password' | 'code';
-type CodeMode = 'mfa' | 'client_trust' | 'first_factor';
 
 const SignIn = () => {
-    const { signIn, fetchStatus } = useSignIn();
+    const { isLoaded, signIn, setActive } = useSignIn();
+    const { signOut } = useClerk();
     const [step, setStep] = useState<SignInStep>('email');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [code, setCode] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [codeMode, setCodeMode] = useState<CodeMode | null>(null);
 
-    const isLoading = fetchStatus === 'fetching' || isSubmitting;
+    const isLoading = !isLoaded || isSubmitting;
 
     const validateEmail = (value: string) => {
         if (!value.trim()) return 'Email is required';
@@ -40,7 +40,7 @@ const SignIn = () => {
         return '';
     };
 
-    const handleEmailNext = async () => {
+    const handleEmailNext = () => {
         const emailErr = validateEmail(email);
         if (emailErr) {
             setFieldErrors({ email: emailErr });
@@ -60,81 +60,72 @@ const SignIn = () => {
 
         setIsSubmitting(true);
         try {
-            console.log('[SignIn] Attempting sign-in with password');
-            const { error } = await signIn!.password({ emailAddress: email.trim(), password });
-            console.log('[SignIn] signIn.password() result:', { error: !!error, status: signIn?.status });
-            if (error) {
-                console.error('[SignIn] Error:', error);
+            // Step 1: Create the sign-in attempt with the email identifier
+            console.log('[SignIn] Creating sign-in attempt with identifier:', email.trim());
+            await signIn!.create({ identifier: email.trim() });
+            console.log('[SignIn] Sign-in created, status:', signIn!.status);
+
+            // Step 2: Attempt the password as the first factor
+            console.log('[SignIn] Attempting password as first factor...');
+            await signIn!.attemptFirstFactor({ strategy: 'password', password });
+
+            if (signIn!.firstFactorVerification.error) {
+                const { error } = signIn!.firstFactorVerification;
+                console.error('[SignIn] Password error:', error);
                 if (error.code === 'form_password_incorrect') {
                     setFieldErrors({ password: 'Incorrect password. Please try again.' });
                 } else {
                     setFieldErrors({ password: error.message || 'Something went wrong.' });
                 }
+                setIsSubmitting(false);
+                return;
+            }
+            console.log('[SignIn] Password verified, status:', signIn!.status);
+
+            // Step 3: If sign-in is complete (no MFA/Client Trust), activate session and navigate
+            if (signIn!.status === 'complete') {
+                console.log('[SignIn] Sign-in complete, activating session...');
+                await setActive!({ session: signIn!.createdSessionId });
+                console.log('[SignIn] Session activated, navigating to index');
+                router.replace('/');
                 return;
             }
 
-            if (signIn!.status === 'needs_client_trust') {
-                console.log('[SignIn] Device trust required, sending email code...');
-                const emailCodeFactor = signIn!.supportedSecondFactors?.find(
-                    (factor) => factor.strategy === 'email_code',
-                );
-                if (emailCodeFactor) {
-                    const { error: sendError } = await signIn!.mfa.sendEmailCode();
-                    if (sendError) {
-                        setFieldErrors({ code: 'Couldn\'t send verification code.' });
-                        return;
-                    }
-                    setCodeMode('client_trust');
-                    setStep('code');
-                } else {
-                    setFieldErrors({ password: 'Verification required but no email factor found.' });
-                }
-            } else if (signIn!.status === 'needs_second_factor') {
-                console.log('[SignIn] MFA required, sending email code...');
-                const emailCodeFactor = signIn!.supportedSecondFactors?.find(
-                    (factor) => factor.strategy === 'email_code',
-                );
-                if (emailCodeFactor) {
-                    const { error: sendError } = await signIn!.mfa.sendEmailCode();
-                    if (sendError) {
-                        setFieldErrors({ code: 'Couldn\'t send verification code.' });
-                        return;
-                    }
-                    setCodeMode('mfa');
-                    setStep('code');
-                } else {
-                    setFieldErrors({ password: 'MFA required but no email factor found.' });
-                }
-            } else if (signIn!.status === 'needs_first_factor') {
-                console.log('[SignIn] Needs first factor, sending email code...');
-                const { error: sendError } = await signIn!.emailCode.sendCode();
-                if (sendError) {
-                    setFieldErrors({ code: 'Couldn\'t send verification code.' });
+            // Step 4: If MFA or Client Trust is needed, prepare and send the email code
+            if (signIn!.status === 'needs_second_factor' || signIn!.status === 'needs_client_trust') {
+                console.log('[SignIn] Second factor required, sending email code...');
+                await signIn!.prepareSecondFactor({ strategy: 'email_code' });
+                await signIn!.attemptSecondFactor({ strategy: 'email_code', code: '' });
+
+                if (signIn!.secondFactorVerification.error) {
+                    const { error } = signIn!.secondFactorVerification;
+                    console.error('[SignIn] Error sending code:', error);
+                    setFieldErrors({ password: error.message || 'Couldn\'t send verification code.' });
+                    setIsSubmitting(false);
                     return;
                 }
-                setCodeMode('first_factor');
+
+                console.log('[SignIn] Code sent, moving to verification step');
                 setStep('code');
-            } else if (signIn!.status === 'complete') {
-                console.log('[SignIn] Sign-in complete, finalizing...');
-                const { error: finalizeError } = await signIn!.finalize({
-                    navigate: ({ session }) => {
-                        if (session?.currentTask) {
-                            console.log('[SignIn] Session has pending task:', session.currentTask);
-                        }
-                        console.log('[SignIn] Navigating to tabs');
-                        router.replace('/(tabs)');
-                    },
-                });
-                if (finalizeError) {
-                    console.error('[SignIn] Finalize error:', finalizeError);
-                    setFieldErrors({ password: finalizeError.message || 'Something went wrong.' });
-                }
-            } else {
-                console.log('[SignIn] Unexpected status:', signIn!.status);
-                setFieldErrors({ password: 'Sign-in interrupted. Please try again.' });
+                return;
             }
+
+            console.log('[SignIn] Unexpected status:', signIn!.status);
+            setFieldErrors({ password: 'Sign-in interrupted. Please try again.' });
         } catch (err: any) {
             console.error('[SignIn] Unexpected error:', err);
+            // If the user is already signed in, sign out the existing session and retry
+            if (err?.message?.includes("already signed in")) {
+                console.log('[SignIn] User already signed in, signing out existing session...');
+                await signOut();
+                // Reset state and retry the sign-in flow
+                setStep('email');
+                setEmail('');
+                setPassword('');
+                setFieldErrors({});
+                setIsSubmitting(false);
+                return;
+            }
             setFieldErrors({ password: err?.message || 'Something went wrong.' });
         } finally {
             setIsSubmitting(false);
@@ -151,48 +142,45 @@ const SignIn = () => {
 
         setIsSubmitting(true);
         try {
-            let error;
+            console.log('[SignIn] Verifying email code (second factor)...');
+            await signIn!.attemptSecondFactor({
+                strategy: 'email_code',
+                code: code.replace(/\s/g, ''),
+            });
 
-            // Device trust and MFA use mfa.verifyEmailCode, while first factor uses emailCode.verifyCode
-            if (codeMode === 'client_trust' || codeMode === 'mfa') {
-                console.log('[SignIn] Verifying MFA code (mode:', codeMode, ')...');
-                const result = await signIn!.mfa.verifyEmailCode({ code: code.replace(/\s/g, '') });
-                error = result.error;
-            } else {
-                console.log('[SignIn] Verifying email code (mode:', codeMode, ')...');
-                const result = await signIn!.emailCode.verifyCode({ code: code.replace(/\s/g, '') });
-                error = result.error;
-            }
-
-            if (error) {
+            if (signIn!.secondFactorVerification.error) {
+                const { error } = signIn!.secondFactorVerification;
                 console.error('[SignIn] Code verification error:', error);
                 setFieldErrors({ code: 'Invalid verification code. Please try again.' });
+                setIsSubmitting(false);
                 return;
             }
 
             console.log('[SignIn] Code verified, status:', signIn!.status);
 
             if (signIn!.status === 'complete') {
-                console.log('[SignIn] Sign-in complete, finalizing...');
-                const { error: finalizeError } = await signIn!.finalize({
-                    navigate: ({ session }) => {
-                        if (session?.currentTask) {
-                            console.log('[SignIn] Session has pending task:', session.currentTask);
-                        }
-                        console.log('[SignIn] Navigating to tabs');
-                        router.replace('/(tabs)');
-                    },
-                });
-                if (finalizeError) {
-                    console.error('[SignIn] Finalize error:', finalizeError);
-                    setFieldErrors({ code: finalizeError.message || 'Something went wrong.' });
-                }
-            } else if (signIn!.status === 'needs_second_factor') {
-                console.log('[SignIn] Still needs MFA after code verification...');
-                setFieldErrors({ code: 'Additional verification required. Please try again.' });
+                console.log('[SignIn] Sign-in complete, activating session...');
+                await setActive!({ session: signIn!.createdSessionId });
+                console.log('[SignIn] Session activated, navigating to index');
+                router.replace('/');
+            } else {
+                console.log('[SignIn] Unexpected status after code verify:', signIn!.status);
+                setFieldErrors({ code: 'Sign-in interrupted. Please try again.' });
             }
         } catch (err: any) {
             console.error('[SignIn] Unexpected error during code verify:', err);
+            // If the user is already signed in, sign out the existing session and retry
+            if (err?.message?.includes("already signed in")) {
+                console.log('[SignIn] User already signed in, signing out existing session...');
+                await signOut();
+                setStep('email');
+                setEmail('');
+                setPassword('');
+                setCode('');
+                setFieldErrors({});
+                setIsSubmitting(false);
+                return;
+            }
             setFieldErrors({ code: err?.message || 'Invalid verification code.' });
         } finally {
             setIsSubmitting(false);
@@ -205,7 +193,6 @@ const SignIn = () => {
             setStep('email');
         } else if (step === 'code') {
             setStep('password');
-            setCodeMode(null);
         } else {
             router.back();
         }
@@ -293,28 +280,26 @@ const SignIn = () => {
                                 )}
 
                                 {step === 'password' && (
-                                    <>
-                                        <View className="auth-field">
-                                            <Text className="auth-label">Password</Text>
-                                            <TextInput
-                                                className={`auth-input ${fieldErrors.password ? 'auth-input-error' : ''}`}
-                                                placeholder="Enter your password"
-                                                placeholderTextColor="rgba(0,0,0,0.3)"
-                                                value={password}
-                                                onChangeText={(text) => {
-                                                    setPassword(text);
-                                                    if (fieldErrors.password) setFieldErrors({});
-                                                }}
-                                                secureTextEntry
-                                                autoCorrect={false}
-                                                autoComplete="password"
-                                                textContentType="password"
-                                            />
-                                            {fieldErrors.password && (
-                                                <Text className="auth-error">{fieldErrors.password}</Text>
-                                            )}
-                                        </View>
-                                    </>
+                                    <View className="auth-field">
+                                        <Text className="auth-label">Password</Text>
+                                        <TextInput
+                                            className={`auth-input ${fieldErrors.password ? 'auth-input-error' : ''}`}
+                                            placeholder="Enter your password"
+                                            placeholderTextColor="rgba(0,0,0,0.3)"
+                                            value={password}
+                                            onChangeText={(text) => {
+                                                setPassword(text);
+                                                if (fieldErrors.password) setFieldErrors({});
+                                            }}
+                                            secureTextEntry
+                                            autoCorrect={false}
+                                            autoComplete="password"
+                                            textContentType="password"
+                                        />
+                                        {fieldErrors.password && (
+                                            <Text className="auth-error">{fieldErrors.password}</Text>
+                                        )}
+                                    </View>
                                 )}
 
                                 {step === 'code' && (
