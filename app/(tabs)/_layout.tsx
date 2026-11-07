@@ -4,7 +4,7 @@ import clsx from "clsx";
 import {Image, View, ActivityIndicator} from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {useAuth} from "@clerk/expo";
-import React, {useEffect, useRef} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {colors, components} from "@/constants/theme"
 import '@/global.css'
 
@@ -13,17 +13,27 @@ const tabBar = components.tabBar;
 export default function TabLayout() {
     const {isLoaded, isSignedIn} = useAuth();
     const hasRedirected = useRef(false);
+    const [authTimeout, setAuthTimeout] = useState(false);
+
+    // Fallback: if Clerk takes more than 5 seconds, skip waiting
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            console.log('[TabLayout] Clerk auth timeout — proceeding without waiting');
+            setAuthTimeout(true);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Redirect unauthenticated users to sign-in
     useEffect(() => {
-        if (isLoaded && !isSignedIn && !hasRedirected.current) {
+        if ((isLoaded || authTimeout) && !isSignedIn && !hasRedirected.current) {
             hasRedirected.current = true;
             router.replace('/(auth)/sign-in');
         }
-    }, [isLoaded, isSignedIn]);
+    }, [isLoaded, isSignedIn, authTimeout]);
 
-    // Show spinner while Clerk is loading
-    if (!isLoaded) {
+    // Show spinner while Clerk is loading (with timeout fallback)
+    if (!isLoaded && !authTimeout) {
         return (
             <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                 <ActivityIndicator size="large" color="#ea7a53" />

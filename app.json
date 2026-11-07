@@ -24,7 +24,7 @@
       "package": "com.nishroy.reactnativereccurly"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [

@@ -6,14 +6,12 @@ import {useFonts} from "expo-font";
 import {ClerkProvider, useAuth} from "@clerk/expo";
 import {tokenCache} from "@clerk/expo/token-cache";
 import {View, Text} from "react-native";
+import {SubscriptionStoreProvider} from "@/lib/subscriptionStore";
 
+// Prevent splash screen from auto-hiding — must be called at module scope before any render
 SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-console.log('[Clerk] Publishable key:', publishableKey ? `${publishableKey.slice(0, 10)}...` : 'MISSING');
-if (!publishableKey) {
-  throw new Error('Add your Clerk Publishable Key to the .env file');
-}
 
 // Error Boundary component to catch and display errors
 class ErrorBoundary extends React.Component<
@@ -56,14 +54,16 @@ function AppContent() {
     'sans-light': require('../assets/fonts/PlusJakartaSans-Light.ttf'),
   });
 
-  const {isLoaded: authLoaded} = useAuth();
+  useAuth();
 
-  // Hide splash only after BOTH fonts and auth are ready
+  // Hide splash screen when fonts are loaded
   useEffect(() => {
-    if ((fontsLoaded || fontError) && authLoaded) {
-      SplashScreen.hideAsync();
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch((e) => {
+        console.log('[RootLayout] Error hiding splash:', e);
+      });
     }
-  }, [fontsLoaded, fontError, authLoaded]);
+  }, [fontsLoaded, fontError]);
 
   if (fontError) {
     return (
@@ -74,7 +74,10 @@ function AppContent() {
     );
   }
 
-  if (!fontsLoaded) return null;
+  // Keep splash visible until fonts are loaded
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <Stack screenOptions={{headerShown: false}} />
@@ -82,10 +85,25 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  if (!publishableKey) {
+    return (
+      <ErrorBoundary>
+        <View className="flex-1 items-center justify-center bg-background p-5">
+          <Text className="text-red-500 text-center font-sans-bold text-xl mb-4">Clerk Configuration Required</Text>
+          <Text className="text-muted-foreground text-center mx-auto max-w-[300]">
+            Add your Clerk Publishable Key to the .env file as EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+          </Text>
+        </View>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <AppContent />
+        <SubscriptionStoreProvider>
+          <AppContent />
+        </SubscriptionStoreProvider>
       </ClerkProvider>
     </ErrorBoundary>
   );
