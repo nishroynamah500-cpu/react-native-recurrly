@@ -1,18 +1,35 @@
 import { useAuth } from "@clerk/expo";
 import { ActivityIndicator, View, Text } from "react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 
+/**
+ * Route guard that redirects unauthenticated users to sign-in
+ * and authenticated users to the tabs screen.
+ * Treats pending Clerk sessions as signed-out so the redirect
+ * behavior matches the tabs layout guard.
+ */
 export default function Index() {
-    const { isLoaded, isSignedIn } = useAuth();
+    const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: true });
     const hasRedirected = useRef(false);
+    const [authTimeout, setAuthTimeout] = useState(false);
+
+    // Fallback: if Clerk takes more than 5 seconds, skip waiting
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            console.log('[Index] Clerk auth timeout — proceeding without waiting');
+            setAuthTimeout(true);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
-        console.log('[Index] Auth state:', { isLoaded, isSignedIn });
-    }, [isLoaded, isSignedIn]);
+        console.log('[Index] Auth state:', { isLoaded, isSignedIn, authTimeout });
+    }, [isLoaded, isSignedIn, authTimeout]);
 
     useEffect(() => {
-        if (isLoaded && !hasRedirected.current) {
+        // Redirect when auth is loaded OR when timeout fires
+        if ((isLoaded || authTimeout) && !hasRedirected.current) {
             hasRedirected.current = true;
             if (!isSignedIn) {
                 console.log('[Index] Navigating to sign-in');
@@ -22,9 +39,9 @@ export default function Index() {
                 router.replace('/(tabs)');
             }
         }
-    }, [isLoaded, isSignedIn]);
+    }, [isLoaded, isSignedIn, authTimeout]);
 
-    if (!isLoaded) {
+    if (!isLoaded && !authTimeout) {
         console.log('[Index] Clerk still loading...');
         return (
             <View className="flex-1 items-center justify-center bg-background">
