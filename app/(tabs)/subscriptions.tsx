@@ -1,5 +1,5 @@
 import "@/global.css";
-import {FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View, Keyboard} from 'react-native';
+import {FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View} from 'react-native';
 import React, {useState, useMemo} from 'react';
 import {SafeAreaView as RNSafeAreaView, useSafeAreaInsets} from "react-native-safe-area-context";
 import {styled} from "nativewind";
@@ -8,6 +8,11 @@ import {useSubscriptionStore} from "@/lib/subscriptionStore";
 
 const SafeAreaView = styled(RNSafeAreaView);
 
+/**
+ * Subscriptions list screen with search filtering.
+ * Displays all subscriptions from the store; supports text search
+ * by name, category, and plan. Keyboard dismisses on drag.
+ */
 const Subscriptions = () => {
   const {subscriptions} = useSubscriptionStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,9 +79,8 @@ const Subscriptions = () => {
           </Text>
         }
         contentContainerClassName="pb-30"
-        keyboardShouldPersistTaps="never"
-        onScroll={() => Keyboard.dismiss()}
-        scrollEventThrottle={16}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

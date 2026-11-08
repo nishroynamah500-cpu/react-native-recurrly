@@ -10,6 +10,11 @@ import '@/global.css'
 
 const tabBar = components.tabBar;
 
+/**
+ * Tab-based navigation layout with an auth guard.
+ * Shows a loading spinner while Clerk initializes; after a timeout
+ * the redirect effect fires so unauthenticated users are sent to sign-in.
+ */
 export default function TabLayout() {
     const {isLoaded, isSignedIn} = useAuth();
     const hasRedirected = useRef(false);
@@ -32,8 +37,9 @@ export default function TabLayout() {
         }
     }, [isLoaded, isSignedIn, authTimeout]);
 
-    // Show spinner while Clerk is loading (with timeout fallback)
-    if (!isLoaded && !authTimeout) {
+    // Show spinner while Clerk is loading — keep rendering even after timeout
+    // so the redirect effect can fire and unmount the spinner
+    if (!isLoaded) {
         return (
             <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                 <ActivityIndicator size="large" color="#ea7a53" />
@@ -44,6 +50,10 @@ export default function TabLayout() {
     return <TabLayoutContent />;
 }
 
+/**
+ * Renders the tab navigator with custom tab-bar styling.
+ * Uses safe-area insets to position the floating tab bar.
+ */
 function TabLayoutContent() {
     const insets = useSafeAreaInsets();
     const TabIcon = ({focused, icon}: TabIconProps) => {

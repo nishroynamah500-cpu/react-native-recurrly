@@ -3,7 +3,7 @@ import {useEffect} from "react";
 import {SplashScreen, Stack } from "expo-router";
 import "@/global.css";
 import {useFonts} from "expo-font";
-import {ClerkProvider, useAuth} from "@clerk/expo";
+import {ClerkProvider} from "@clerk/expo";
 import {tokenCache} from "@clerk/expo/token-cache";
 import {View, Text} from "react-native";
 import {SubscriptionStoreProvider} from "@/lib/subscriptionStore";
@@ -13,7 +13,10 @@ SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 
-// Error Boundary component to catch and display errors
+/**
+ * Error boundary that catches render-time errors and displays
+ * a fallback UI instead of crashing the app.
+ */
 class ErrorBoundary extends React.Component<
   {children: React.ReactNode},
   {hasError: boolean; error: Error | null}
@@ -44,6 +47,11 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+/**
+ * Renders the root stack navigator after fonts are loaded.
+ * Hides the splash screen once fonts are ready; shows the splash
+ * while loading to avoid a flash of unstyled content.
+ */
 function AppContent() {
   const [fontsLoaded, fontError] = useFonts({
     'sans-regular': require('../assets/fonts/PlusJakartaSans-Regular.ttf'),
@@ -53,8 +61,6 @@ function AppContent() {
     'sans-extrabold': require('../assets/fonts/PlusJakartaSans-ExtraBold.ttf'),
     'sans-light': require('../assets/fonts/PlusJakartaSans-Light.ttf'),
   });
-
-  useAuth();
 
   // Hide splash screen when fonts are loaded
   useEffect(() => {
@@ -84,6 +90,10 @@ function AppContent() {
   );
 }
 
+/**
+ * Root layout that wraps the app with Clerk auth and subscription store.
+ * Guards against missing Clerk publishable key and provides an error boundary.
+ */
 export default function RootLayout() {
   if (!publishableKey) {
     return (

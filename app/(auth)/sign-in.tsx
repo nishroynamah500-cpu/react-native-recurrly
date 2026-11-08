@@ -11,6 +11,11 @@ const SafeAreaView = styled(RNSafeAreaView);
 
 type SignInStep = 'email' | 'password' | 'code';
 
+/**
+ * Multi-step sign-in screen backed by Clerk.
+ * Guides the user through email → password → optional second-factor code,
+ * handling session-exist conflicts and field-level validation errors.
+ */
 const SignIn = () => {
     const { isLoaded, signIn, setActive } = useSignIn();
     const { signOut } = useClerk();
@@ -23,23 +28,27 @@ const SignIn = () => {
 
     const isLoading = !isLoaded || isSubmitting;
 
+    /** Validate an email address format; returns an error message or an empty string. */
     const validateEmail = (value: string) => {
         if (!value.trim()) return 'Email is required';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
         return '';
     };
 
+    /** Validate that a password is non-empty; returns an error message or an empty string. */
     const validatePassword = (value: string) => {
         if (!value.trim()) return 'Password is required';
         return '';
     };
 
+    /** Validate a 6-digit verification code; returns an error message or an empty string. */
     const validateCode = (value: string) => {
         if (!value.trim()) return 'Verification code is required';
         if (!/^\d{6}$/.test(value.replace(/\s/g, ''))) return 'Enter the 6-digit code';
         return '';
     };
 
+    /** Advance from the email step to the password step after validating the email. */
     const handleEmailNext = () => {
         const emailErr = validateEmail(email);
         if (emailErr) {
@@ -50,6 +59,11 @@ const SignIn = () => {
         setStep('password');
     };
 
+    /**
+     * Submit the password and perform the sign-in flow.
+     * Creates a sign-in attempt, verifies the first factor (password),
+     * and handles second-factor preparation if required.
+     */
     const handlePasswordSubmit = async () => {
         const passErr = validatePassword(password);
         if (passErr) {
@@ -61,77 +75,79 @@ const SignIn = () => {
         setIsSubmitting(true);
         try {
             // Step 1: Create the sign-in attempt with the email identifier
-            console.log('[SignIn] Creating sign-in attempt with identifier:', email.trim());
+            console.log('[SignIn] Creating sign-in attempt');
             await signIn!.create({ identifier: email.trim() });
-            console.log('[SignIn] Sign-in created, status:', signIn!.status);
 
             // Step 2: Attempt the password as the first factor
-            console.log('[SignIn] Attempting password as first factor...');
-            await signIn!.attemptFirstFactor({ strategy: 'password', password });
+            const result = await signIn!.attemptFirstFactor({
+                strategy: 'password',
+                password,
+            });
 
-            if (signIn!.firstFactorVerification.error) {
-                const { error } = signIn!.firstFactorVerification;
-                console.error('[SignIn] Password error:', error);
+            if (result.firstFactorVerification.error) {
+                const { error } = result.firstFactorVerification;
                 if (error.code === 'form_password_incorrect') {
                     setFieldErrors({ password: 'Incorrect password. Please try again.' });
                 } else {
                     setFieldErrors({ password: error.message || 'Something went wrong.' });
                 }
-                setIsSubmitting(false);
                 return;
             }
-            console.log('[SignIn] Password verified, status:', signIn!.status);
 
             // Step 3: If sign-in is complete (no MFA/Client Trust), activate session and navigate
-            if (signIn!.status === 'complete') {
-                console.log('[SignIn] Sign-in complete, activating session...');
-                await setActive!({ session: signIn!.createdSessionId });
-                console.log('[SignIn] Session activated, navigating to index');
+            if (result.status === 'complete') {
+                await setActive!({ session: result.createdSessionId });
                 router.replace('/');
                 return;
             }
 
             // Step 4: If MFA or Client Trust is needed, prepare and send the email code
-            if (signIn!.status === 'needs_second_factor' || signIn!.status === 'needs_client_trust') {
-                console.log('[SignIn] Second factor required, sending email code...');
-                await signIn!.prepareSecondFactor({ strategy: 'email_code' });
-                await signIn!.attemptSecondFactor({ strategy: 'email_code', code: '' });
-
-                if (signIn!.secondFactorVerification.error) {
-                    const { error } = signIn!.secondFactorVerification;
-                    console.error('[SignIn] Error sending code:', error);
-                    setFieldErrors({ password: error.message || 'Couldn\'t send verification code.' });
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                console.log('[SignIn] Code sent, moving to verification step');
+            if (
+                result.status === 'needs_second_factor' ||
+                result.status === 'needs_client_trust'
+            ) {
+                await result.prepareSecondFactor({ strategy: 'email_code' });
                 setStep('code');
                 return;
             }
 
-            console.log('[SignIn] Unexpected status:', signIn!.status);
             setFieldErrors({ password: 'Sign-in interrupted. Please try again.' });
         } catch (err: any) {
             console.error('[SignIn] Unexpected error:', err);
-            // If the user is already signed in, sign out the existing session and retry
-            if (err?.message?.includes("already signed in")) {
-                console.log('[SignIn] User already signed in, signing out existing session...');
-                await signOut();
-                // Reset state and retry the sign-in flow
+            // If the user is already signed in, sign out the existing session and require re-entry
+            if (err?.errors?.[0]?.code === 'session_exists') {
+                try {
+                    await signOut();
+                } catch (signOutErr: any) {
+                    console.error('[SignIn] Sign-out failed:', signOutErr);
+                    setFieldErrors({
+                        password:
+                            'Session conflict. Please sign out of other devices and try again.',
+                    });
+                    return;
+                }
+                // Reset state to require credential re-entry
                 setStep('email');
                 setEmail('');
                 setPassword('');
                 setFieldErrors({});
-                setIsSubmitting(false);
                 return;
             }
-            setFieldErrors({ password: err?.message || 'Something went wrong.' });
+            const errCode = err?.errors?.[0]?.code;
+            if (errCode === 'form_password_incorrect') {
+                setFieldErrors({ password: 'Incorrect password. Please try again.' });
+            } else {
+                setFieldErrors({ password: err?.message || 'Something went wrong.' });
+            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    /**
+     * Verify the second-factor email code and complete sign-in.
+     * Activates the session on success and navigates to the home screen.
+     */
     const handleCodeVerify = async () => {
         const codeErr = validateCode(code);
         if (codeErr) {
@@ -169,16 +185,24 @@ const SignIn = () => {
             }
         } catch (err: any) {
             console.error('[SignIn] Unexpected error during code verify:', err);
-            // If the user is already signed in, sign out the existing session and retry
-            if (err?.message?.includes("already signed in")) {
-                console.log('[SignIn] User already signed in, signing out existing session...');
-                await signOut();
+            // If the user is already signed in, sign out the existing session and require re-entry
+            if (err?.errors?.[0]?.code === 'session_exists') {
+                try {
+                    await signOut();
+                } catch (signOutErr: any) {
+                    console.error('[SignIn] Sign-out failed:', signOutErr);
+                    setFieldErrors({
+                        code:
+                            'Session conflict. Please sign out of other devices and try again.',
+                    });
+                    return;
+                }
+                // Reset state to require credential re-entry
                 setStep('email');
                 setEmail('');
                 setPassword('');
                 setCode('');
                 setFieldErrors({});
-                setIsSubmitting(false);
                 return;
             }
             setFieldErrors({ code: err?.message || 'Invalid verification code.' });
@@ -187,6 +211,7 @@ const SignIn = () => {
         }
     };
 
+    /** Navigate back to the previous sign-in step or leave the screen. */
     const handleBack = () => {
         setFieldErrors({});
         if (step === 'password') {
@@ -198,24 +223,28 @@ const SignIn = () => {
         }
     };
 
+    /** Return the screen title for the current sign-in step. */
     const getScreenTitle = () => {
         if (step === 'email') return 'Welcome back';
         if (step === 'password') return 'Enter your password';
         return 'Check your email';
     };
 
+    /** Return the subtitle text for the current sign-in step. */
     const getScreenSubtitle = () => {
         if (step === 'email') return 'Sign in to manage your subscriptions';
         if (step === 'password') return `We'll send a verification code to\n${email}`;
         return `A 6-digit code has been sent to\n${email}`;
     };
 
+    /** Return the button label for the current sign-in step. */
     const getButtonLabel = () => {
         if (step === 'email') return 'Continue';
         if (step === 'password') return 'Sign in';
         return 'Verify code';
     };
 
+    /** Dispatch the action for the primary button on the current step. */
     const handleButtonPress = () => {
         if (step === 'email') handleEmailNext();
         else if (step === 'password') handlePasswordSubmit();

@@ -3,8 +3,14 @@ import { ActivityIndicator, View, Text } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 
+/**
+ * Route guard that redirects unauthenticated users to sign-in
+ * and authenticated users to the tabs screen.
+ * Treats pending Clerk sessions as signed-out so the redirect
+ * behavior matches the tabs layout guard.
+ */
 export default function Index() {
-    const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+    const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: true });
     const hasRedirected = useRef(false);
     const [authTimeout, setAuthTimeout] = useState(false);
 

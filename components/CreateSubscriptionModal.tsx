@@ -5,12 +5,14 @@ import clsx from "clsx";
 import dayjs from "dayjs";
 import {icons} from "@/constants/icons";
 
+import {randomUUID} from "expo-crypto";
+
+/**
+ * Generate a collision-resistant UUIDv4 string using expo-crypto.
+ * Used as the unique identifier for new subscription records.
+ */
 function generateId() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+    return randomUUID();
 }
 
 const CATEGORIES = ["Entertainment", "AI Tools", "Developer Tools", "Design", "Productivity", "Cloud", "Music", "Other"];
@@ -32,6 +34,11 @@ interface CreateSubscriptionModalProps {
     onSubmit: (subscription: Subscription) => void;
 }
 
+/**
+ * Modal dialog for creating a new subscription.
+ * Collects name, price, frequency, and category; validates all fields
+ * before submission. Resets form state when closed.
+ */
 export default function CreateSubscriptionModal({visible, onClose, onSubmit}: CreateSubscriptionModalProps) {
     const [name, setName] = useState("");
     const [price, setPrice] = useState("");
@@ -39,6 +46,10 @@ export default function CreateSubscriptionModal({visible, onClose, onSubmit}: Cr
     const [category, setCategory] = useState<string | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    /**
+     * Validate form fields and submit a new subscription.
+     * Clears errors on success and resets the form.
+     */
     const handleSubmit = () => {
         const newErrors: Record<string, string> = {};
 
@@ -84,6 +95,7 @@ export default function CreateSubscriptionModal({visible, onClose, onSubmit}: Cr
         resetForm();
     };
 
+    /** Reset all form fields and validation errors to their initial state. */
     const resetForm = () => {
         setName("");
         setPrice("");
@@ -93,12 +105,30 @@ export default function CreateSubscriptionModal({visible, onClose, onSubmit}: Cr
     };
 
     return (
-        <Modal visible={visible} transparent animationType="slide">
-            <Pressable className="modal-overlay" onPress={onClose}>
+        <Modal visible={visible} transparent animationType="slide" accessibilityViewIsModal>
+            <Pressable
+                className="modal-overlay"
+                onPress={() => {
+                    resetForm();
+                    onClose();
+                }}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss modal"
+            >
                 <Pressable className="modal-container" onPress={(e) => e.stopPropagation()}>
                     <View className="modal-header">
                         <Text className="modal-title">New Subscription</Text>
-                        <Pressable className="modal-close" onPress={onClose}>
+                        <Pressable
+                            className="modal-close"
+                            onPress={() => {
+                                resetForm();
+                                onClose();
+                            }}
+                            accessible
+                            accessibilityRole="button"
+                            accessibilityLabel="Close"
+                        >
                             <Text className="modal-close-text">×</Text>
                         </Pressable>
                     </View>
@@ -192,7 +222,10 @@ export default function CreateSubscriptionModal({visible, onClose, onSubmit}: Cr
                             </View>
 
                             <Pressable
-                                className={clsx("auth-button", !name.trim() || !price || !category && "auth-button-disabled")}
+                                className={clsx(
+                                    "auth-button",
+                                    (!name.trim() || !price || !category) && "auth-button-disabled"
+                                )}
                                 onPress={handleSubmit}
                             >
                                 <Text className="auth-button-text">Create Subscription</Text>
