@@ -513,4 +513,90 @@
     .settings-detail-value {
         @apply flex-1 text-right text-sm font-sans-semibold text-primary;
     }
+
+    /* Insights page */
+
+    .insights-header {
+        @apply mb-5 flex-row items-center justify-between;
+    }
+
+    .insights-back-icon {
+        @apply size-10;
+    }
+
+    .insights-title {
+        @apply text-2xl font-sans-bold text-primary;
+    }
+
+    .insights-menu-icon {
+        @apply size-10;
+    }
+
+    .insights-chart-card {
+        @apply mb-5 rounded-2xl border border-border bg-card items-center justify-center py-6;
+    }
+
+    .insights-expenses-card {
+        @apply mb-5 flex-row items-center justify-between rounded-2xl border border-border bg-card p-5;
+    }
+
+    .insights-expenses-left {
+        @apply gap-1;
+    }
+
+    .insights-expenses-label {
+        @apply text-lg font-sans-bold text-primary;
+    }
+
+    .insights-expenses-period {
+        @apply text-sm font-sans-medium text-muted-foreground;
+    }
+
+    .insights-expenses-right {
+        @apply items-end gap-1;
+    }
+
+    .insights-expenses-amount {
+        @apply text-xl font-sans-bold text-primary;
+    }
+
+    .insights-expenses-change {
+        @apply text-sm font-sans-semibold text-muted-foreground;
+    }
+
+    .insights-history-card {
+        @apply rounded-2xl p-4 flex-row items-center justify-between;
+    }
+
+    .insights-history-left {
+        @apply flex-row items-center gap-3;
+    }
+
+    .insights-history-icon {
+        @apply size-12 rounded-lg;
+    }
+
+    .insights-history-info {
+        @apply gap-0.5;
+    }
+
+    .insights-history-name {
+        @apply text-lg font-sans-bold text-primary;
+    }
+
+    .insights-history-date {
+        @apply text-sm font-sans-medium text-muted-foreground;
+    }
+
+    .insights-history-right {
+        @apply items-end gap-0.5;
+    }
+
+    .insights-history-price {
+        @apply text-lg font-sans-bold text-primary;
+    }
+
+    .insights-history-billing {
+        @apply text-sm font-sans-medium text-muted-foreground;
+    }
 }

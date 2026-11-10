@@ -1,5 +1,10 @@
 import { icons } from "./icons";
 
+export interface WeeklyDataItem {
+    value: number;
+    label: string;
+}
+
 export const tabs: AppTab[] = [
     { name: "index", title: "Home", icon: icons.home },
     { name: "subscriptions", title: "Subscriptions", icon: icons.wallet },
@@ -40,6 +45,77 @@ export const UPCOMING_SUBSCRIPTIONS: UpcomingSubscription[] = [
         price: 15.0,
         currency: "USD",
         daysLeft: 6,
+    },
+];
+
+export const INSIGHTS_WEEKLY_DATA = [
+    { value: 36, label: 'Mon' },
+    { value: 32, label: 'Tue' },
+    { value: 22, label: 'Wed' },
+    { value: 40, label: 'Thr' },
+    { value: 35, label: 'Fri' },
+    { value: 18, label: 'Sat' },
+    { value: 24, label: 'Sun' },
+];
+
+export const INSIGHTS_EXPENSES = {
+    amount: 424.63,
+    period: 'March 2026',
+    changePercent: 12,
+};
+
+export const INSIGHTS_HISTORY: Subscription[] = [
+    {
+        id: 'claude-history',
+        icon: icons.claude,
+        name: 'Claude',
+        plan: 'Pro Plan',
+        category: 'AI Tools',
+        status: 'active',
+        price: 9.84,
+        currency: 'USD',
+        billing: 'Monthly',
+        renewalDate: '2026-06-25T12:00:00.000Z',
+        color: '#f5c542',
+    },
+    {
+        id: 'canva-history',
+        icon: icons.canva,
+        name: 'Canva',
+        plan: 'Pro',
+        category: 'Design',
+        status: 'active',
+        price: 43.89,
+        currency: 'USD',
+        billing: 'Monthly',
+        renewalDate: '2026-06-30T16:00:00.000Z',
+        color: '#b8e8d0',
+    },
+    {
+        id: 'figma-history',
+        icon: icons.figma,
+        name: 'Figma',
+        plan: 'Professional',
+        category: 'Design',
+        status: 'active',
+        price: 15.00,
+        currency: 'USD',
+        billing: 'Monthly',
+        renewalDate: '2026-07-05T10:00:00.000Z',
+        color: '#e8def8',
+    },
+    {
+        id: 'spotify-history',
+        icon: icons.spotify,
+        name: 'Spotify',
+        plan: 'Premium',
+        category: 'Music',
+        status: 'active',
+        price: 5.99,
+        currency: 'USD',
+        billing: 'Monthly',
+        renewalDate: '2026-07-10T08:00:00.000Z',
+        color: '#b8d4e3',
     },
 ];
 
